@@ -1,193 +1,167 @@
-# קו טלפוני GPT 📞🤖
+# GPT Phone Line - ימות המשיח
 
-קו טלפון ישראלי שבו מתקשרים ושואלים שאלות את GPT והוא עונה בקול בחזרה.
+פרויקט קו טלפוני מבוסס GPT בעברית.
 
-> **גרסת ימות המשיח** – מספר ישראלי חינמי + TTS עברי מובנה. ראה `app_yemot.py`.
+המימוש הראשי כרגע הוא דרך ימות המשיח, עם API טקסטואלי בפורמט key=value.
 
-## איך זה עובד
+## סטטוס נוכחי
 
-```
-מתקשר → Twilio → השרת שלך → GPT → TTS → Twilio → מתקשר
-```
+- מסלול ראשי פעיל: app_yemot.py
+- נתמך מצב voice (ברירת מחדל): זיהוי דיבור בצד ימות המשיח
+- נתמך מצב record: קבלת הפניה להקלטה במקום טקסט
+- ברירת מחדל לדיבור ימות: Osnat עם tts_rate=2 בקבצי ext.ini
+- מסלול Twilio עדיין קיים בקובץ app.py, אבל אינו המסלול הראשי בפרויקט
 
-1. הלקוח מתקשר למספר הטלפון
-2. Twilio מקשיב לדיבור ומתמלל אותו לטקסט (עברית)
-3. הטקסט נשלח ל-GPT שמייצר תשובה
-4. OpenAI TTS ממיר את התשובה לאודיו
-5. Twilio מנגן את האודיו למתקשר
-6. השיחה ממשיכה בצורה רציפה עם זיכרון
+## איך הזרימה עובדת (ימות)
 
----
+1. שיחה נכנסת לשלוחה שהוגדרה כ-api בימות המשיח
+2. ימות פונה לשרת בנתיב /yemot/call
+3. השרת מחזיר read= עם prompt למתקשר + בקשת קלט
+4. המתקשר מדבר
+5. הטקסט נשלח בפרמטר QUESTION
+6. השרת שולח את הטקסט ל-OpenAI ומחזיר תשובה ב-read=
+7. ימות מקריא את התשובה
 
-## דרישות מוקדמות
+## דרישות
 
-| שירות | מה צריך | קישור |
-|-------|---------|-------|
-| **OpenAI** | API Key (GPT + TTS) | [platform.openai.com](https://platform.openai.com) |
-| **Twilio** | חשבון + מספר ישראלי (+972) | [twilio.com](https://www.twilio.com) |
-| **Python** | גרסה 3.10 ומעלה | |
-| **ngrok** | לפיתוח מקומי | [ngrok.com](https://ngrok.com/download) |
+- Python 3.10+
+- מפתח OpenAI תקין
+- שלוחה בימות המשיח מסוג API
+- טאנל ציבורי לשרת המקומי (Cloudflare Tunnel או ngrok)
 
-### גרסת ימות המשיח (חינם!)
+## התקנה מהירה (Windows)
 
-| שירות | מה צריך | קישור |
-|-------|---------|-------|
-| **OpenAI** | API Key (GPT + Whisper) | [platform.openai.com](https://platform.openai.com) |
-| **ימות המשיח** | הרשמה חינמית + תוסף | [yemot.co.il](https://yemot.co.il) |
-| **Python** | גרסה 3.10 ומעלה | |
-| **ngrok** | לפיתוח מקומי | [ngrok.com](https://ngrok.com/download) |
+1. התקנת תלויות:
 
-
-## התקנה
-
-### 1. שכפל וסביבה
-
-```bash
-cd qo-telephoni-gpt
-python -m venv venv
-venv\Scripts\activate          # Windows
-# source venv/bin/activate     # Mac/Linux
+```powershell
+python -m venv .venv
+.\.venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 2. קובץ הגדרות
+2. יצירת קובץ הגדרות:
 
-```bash
-copy .env.example .env
+```powershell
+Copy-Item .env.example .env
 ```
 
-ערוך את `.env` ומלא:
+3. עריכת .env עם הערכים שלך:
 
 ```env
 OPENAI_API_KEY=sk-...
-TWILIO_ACCOUNT_SID=ACxxx...
-TWILIO_AUTH_TOKEN=xxx...
-BASE_URL=https://xxxx.ngrok-free.app   # (ראה סעיף ngrok למטה)
+BASE_URL=https://your-public-url
+GPT_MODEL=gpt-4o-mini
+GREETING_TEXT=שלום! אני עוזר בינה מלאכותית. לאחר הצפצוף, אמור את שאלתך.
+PORT=5000
+FLASK_DEBUG=false
+
+# voice או record
+YEMOT_INPUT_MODE=voice
+
+# רלוונטי רק למצב voice
+YEMOT_VOICE_SILENCE_SECONDS=6
+YEMOT_VOICE_MAX_SECONDS=30
 ```
 
-### 3. הפעלת השרת
+## הרצת השרת
 
-```bash
-python app.py
+```powershell
+.\.venv\Scripts\python.exe app_yemot.py
 ```
 
-השרת רץ על `http://localhost:5000`
+בדיקת בריאות:
 
----
-
-## הגדרת ngrok (פיתוח מקומי)
-
-Twilio צריך לפנות לשרת שלך דרך כתובת ציבורית. ngrok יוצר מנהרה:
-
-```bash
-ngrok http 5000
+```powershell
+Invoke-WebRequest http://localhost:5000/health -UseBasicParsing
 ```
 
-תקבל כתובת כמו: `https://abc123.ngrok-free.app`
+## חשיפה ציבורית (Tunnel)
 
-עדכן בקובץ `.env`:
-```env
-BASE_URL=https://abc123.ngrok-free.app
+### אפשרות 1: Cloudflare Tunnel
+
+```powershell
+.\.tools\cloudflared\cloudflared.exe tunnel --url http://localhost:5000
 ```
 
----
+### אפשרות 2: ngrok
 
-## הגדרת Twilio
-
-### רכישת מספר ישראלי
-
-1. היכנס ל-[Twilio Console](https://console.twilio.com)
-2. **Phone Numbers → Manage → Buy a number**
-3. בחר מדינה: **Israel (IL)**
-4. בחר מספר עם Voice capabilities
-5. רכוש
-
-### הגדרת Webhooks
-
-1. לך ל-**Phone Numbers → Manage → Active numbers**
-2. לחץ על המספר שרכשת
-3. תחת **Voice Configuration**:
-
-| שדה | ערך |
-|-----|-----|
-| **A call comes in** | `Webhook` → `https://YOUR_URL/voice` → `HTTP POST` |
-| **Call status changes** | `https://YOUR_URL/status` → `HTTP POST` |
-
----
-
-## בדיקה
-
-- בדוק שהשרת רצ: `http://localhost:5000/health`
-- התקשר למספר Twilio
-- שאל שאלה בעברית
-- GPT יענה לך בקול!
-
----
-
-## הגדרות אופציונליות
-
-ניתן לשנות בקובץ `.env`:
-
-```env
-# מודל GPT
-GPT_MODEL=gpt-4o          # יותר חכם (יקר יותר)
-GPT_MODEL=gpt-4o-mini     # מהיר וזול (ברירת מחדל)
-
-# קול TTS
-TTS_VOICE=nova            # נשמע טוב לעברית
-TTS_VOICE=shimmer         # קול נשי אחר
-TTS_VOICE=onyx            # קול גברי
-
-# ברכה מותאמת אישית
-GREETING_TEXT=שלום! אתה מחובר לתמיכה של חברת XYZ.
-
-# פרומפט מערכת
-SYSTEM_PROMPT=אתה נציג שירות לקוחות של חברת XYZ. ענה בעברית בלבד.
+```powershell
+.\.tools\ngrok\ngrok.exe http 5000
 ```
 
----
+את כתובת ה-https שקיבלת מעדכנים ב-BASE_URL וב-api_link של ימות.
 
-## פריסה לפרודקשן
+## הגדרת ימות המשיח
 
-### Railway (קל ומהיר)
+בקבצי ההעלאה, נדרש:
 
-```bash
-npm install -g @railway/cli
-railway login
-railway init
-railway up
+```ini
+type=api
+api_link=https://YOUR_TUNNEL_URL/yemot/call
+voice=Osnat
+tts_voice=Osnat
+tts_rate=2
 ```
 
-קבל את ה-URL, עדכן `BASE_URL` ב-Railway environment variables,  
-ועדכן את ה-webhook ב-Twilio.
+הקבצים הרלוונטיים בפרויקט:
 
-### Render / Heroku
+- yemot_upload/ext.ini
+- yemot_upload/1/ext.ini
+- yemot_upload/7/ext.ini
 
-1. העלה ל-GitHub
-2. חבר לשירות (Render/Heroku)
-3. הגדר environment variables
-4. עדכן BASE_URL ו-Twilio webhook
+ארטיפקטים מוכנים להעלאה:
 
----
+- ext_for_extension_1.zip
+- yemot_upload_v2.zip
 
-## עלויות משוערות
+## נקודות קצה חשובות
 
-| שירות | עלות משוערת |
-|-------|-------------|
-| OpenAI GPT-4o-mini | ~$0.002 לשיחה |
-| OpenAI TTS | ~$0.015 לכל 1,000 תווים |
-| Twilio מספר ישראלי | ~$1-3 לחודש |
-| Twilio דקת שיחה | ~$0.02-0.05 לדקה |
+- /yemot/call: נקודת ה-API הראשית לשיחה
+- /yemot/answer: נתיב לקליטת הקלטה (אם עובדים במודל הקלטות)
+- /yemot/hangup: ניקוי session/היסטוריה בסיום שיחה
+- /health: בדיקת תקינות שרת
 
----
+## משתני סביבה נתמכים (ימות)
 
-## מבנה הפרויקט
+- OPENAI_API_KEY
+- BASE_URL
+- GPT_MODEL
+- GREETING_TEXT
+- SYSTEM_PROMPT
+- PORT
+- FLASK_DEBUG
+- YEMOT_INPUT_MODE
+- YEMOT_VOICE_SILENCE_SECONDS
+- YEMOT_VOICE_MAX_SECONDS
 
+## תקלות נפוצות
+
+1. ההודעה: "אין מספיק יחידות לשימוש בזיהוי דיבור"
+    הפתרון: לטעון יחידות זיהוי דיבור בימות או לעבור זמנית ל-record.
+
+2. השרת מחזיר שגיאה בפתיחה
+    בדוק OPENAI_API_KEY, ושאין תהליך Python ישן שמחזיק פורט 5000.
+
+3. ימות לא מגיע לשרת
+    בדוק שהטאנל פעיל ושה-api_link מצביע בדיוק ל-/yemot/call.
+
+4. תשובות GPT לא חוזרות
+    ייתכן מגבלת quota בחשבון OpenAI (429 / insufficient_quota).
+
+## מבנה פרויקט
+
+```text
+.
+├── app_yemot.py
+├── app.py
+├── requirements.txt
+├── .env.example
+├── yemot_upload/
+├── ext_for_extension_1.zip
+└── yemot_upload_v2.zip
 ```
-├── app.py              # השרת הראשי
-├── requirements.txt    # חבילות Python
-├── .env.example        # תבנית הגדרות
-├── .gitignore
-└── static/
-    └── audio/          # קבצי TTS זמניים (נוצר אוטומטית)
-```
+
+## אבטחה
+
+- לא לשמור מפתחות אמיתיים ב-Git
+- אם מפתח API נחשף, לבצע rotation מיידי דרך OpenAI
